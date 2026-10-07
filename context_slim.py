@@ -366,6 +366,22 @@ def main():
         return pu
 
     fixed = 0
+    # State rows (title, mode, permission-mode, bridge-session, ...) have no uuid and
+    # are not part of the message chain. Claude Code appends them on every turn, so a
+    # long-lived session piles up tens of thousands of identical copies. Only the
+    # last one of each type matters; drop the rest.
+    # 状态行（标题、模式、权限、bridge 等）没有 uuid、不在对话链上，CC 每轮追加一遍，
+    # 长窗里会攒到几万行一模一样的。每种只看最后一条，其余删掉。
+    last_state = {}
+    for i, o in enumerate(rows):
+        if o and not o.get('uuid') and o.get('type') and o['type'] != 'summary':
+            last_state[(o['type'], o.get('prUrl') or '')] = i
+    keep_state = set(last_state.values())
+    for i, o in enumerate(rows):
+        if (o and not o.get('uuid') and o.get('type') and o['type'] != 'summary'
+                and i not in keep_state and i not in drop):
+            drop.add(i); saved += len(raws[i])
+
     kept = []
     for i, o in enumerate(rows):
         if i in drop:
